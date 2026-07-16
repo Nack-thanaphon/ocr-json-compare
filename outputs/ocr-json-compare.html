@@ -1,0 +1,606 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OCR JSON Compare x3</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --panel-soft: #f8fafc;
+      --ink: #0f172a;
+      --muted: #475569;
+      --line: #d9e2ec;
+      --accent: #2563eb;
+      --accent-2: #0f766e;
+      --danger: #dc2626;
+      --diff: #fff7cc;
+      --same: #edf7ed;
+      --missing: #fee2e2;
+      --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 20%),
+        linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+    }
+
+    .page {
+      width: min(1520px, calc(100vw - 24px));
+      margin: 18px auto 28px;
+    }
+
+    .topbar,
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .topbar {
+      padding: 18px 20px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 0.96rem;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    button,
+    select,
+    input {
+      font: inherit;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    button {
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      border-color: var(--accent);
+    }
+
+    button.primary {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    .stats {
+      color: var(--muted);
+      font-size: 0.94rem;
+      margin-left: auto;
+    }
+
+    .editors {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .editor {
+      padding: 14px;
+    }
+
+    .editor-head {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .editor-head strong {
+      font-size: 1rem;
+    }
+
+    .editor textarea {
+      width: 100%;
+      min-height: 340px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: var(--panel-soft);
+      color: var(--ink);
+      font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .status {
+      min-height: 20px;
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .status.error {
+      color: var(--danger);
+    }
+
+    .panel {
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .result-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 4px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+    }
+
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+    }
+
+    table {
+      width: 100%;
+      min-width: 1020px;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #e6edf5;
+      border-right: 1px solid #e6edf5;
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+
+    thead th {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      background: #f8fbff;
+    }
+
+    .path-col {
+      position: sticky;
+      left: 0;
+      z-index: 1;
+      min-width: 250px;
+      background: #fbfdff;
+    }
+
+    thead .path-col {
+      z-index: 3;
+    }
+
+    .value {
+      white-space: pre-wrap;
+      word-break: break-word;
+      font: 12.5px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    .same {
+      background: var(--same);
+    }
+
+    .diff {
+      background: var(--diff);
+    }
+
+    .missing {
+      background: var(--missing);
+    }
+
+    .placeholder {
+      padding: 26px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    .help {
+      color: var(--muted);
+      font-size: 0.93rem;
+      line-height: 1.7;
+    }
+
+    @media (max-width: 1080px) {
+      .editors {
+        grid-template-columns: 1fr;
+      }
+
+      .stats {
+        margin-left: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="topbar">
+      <h1>OCR JSON Compare x3</h1>
+      <p class="subtitle">เปรียบเทียบ OCR result 3 ครั้งแบบ side-by-side และดูเฉพาะ field ที่ต่างกันเพื่อช่วย tune prompt</p>
+      <div class="controls">
+        <button id="compareBtn" class="primary">Compare</button>
+        <button id="loadExampleBtn">Sample Data</button>
+        <button id="clearBtn">Clear</button>
+        <select id="filterMode">
+          <option value="diff">Differences only</option>
+          <option value="all">All rows</option>
+          <option value="missing">Missing only</option>
+        </select>
+        <input id="searchInput" type="search" placeholder="Search path or value">
+        <div class="stats" id="statsText">ใส่ JSON อย่างน้อย 2 ช่องแล้วกด Compare</div>
+      </div>
+    </section>
+
+    <section class="editors">
+      <article class="panel editor">
+        <div class="editor-head">
+          <strong>Before / Result 1</strong>
+          <input class="label-input" type="text" value="Result 1" placeholder="Label">
+        </div>
+        <textarea class="json-input" placeholder='{\n  "text": "..."\n}'></textarea>
+        <div class="status">พร้อมวาง JSON</div>
+      </article>
+
+      <article class="panel editor">
+        <div class="editor-head">
+          <strong>After / Result 2</strong>
+          <input class="label-input" type="text" value="Result 2" placeholder="Label">
+        </div>
+        <textarea class="json-input" placeholder='{\n  "text": "..."\n}'></textarea>
+        <div class="status">พร้อมวาง JSON</div>
+      </article>
+
+      <article class="panel editor">
+        <div class="editor-head">
+          <strong>After / Result 3</strong>
+          <input class="label-input" type="text" value="Result 3" placeholder="Label">
+        </div>
+        <textarea class="json-input" placeholder='{\n  "text": "..."\n}'></textarea>
+        <div class="status">พร้อมวาง JSON</div>
+      </article>
+    </section>
+
+    <section class="panel">
+      <div class="result-head">
+        <div class="legend">
+          <span><i class="swatch" style="background: var(--same)"></i> same</span>
+          <span><i class="swatch" style="background: var(--diff)"></i> different</span>
+          <span><i class="swatch" style="background: var(--missing)"></i> missing</span>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead id="tableHead"></thead>
+          <tbody id="tableBody">
+            <tr><td class="placeholder">ผล compare จะขึ้นตรงนี้</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel help">
+      ถ้าคุณใช้ prompt หลายเวอร์ชัน ให้ตั้งชื่อ label เป็นเช่น `baseline`, `prompt-v2`, `prompt-v3`
+      แล้วเปิด filter เป็น `Differences only` เพื่อดูว่า field ไหนเริ่มเปลี่ยน เช่น `total`, `vendor.tax_id`, `items[1].desc`
+    </section>
+  </main>
+
+  <script>
+    const compareBtn = document.getElementById("compareBtn");
+    const loadExampleBtn = document.getElementById("loadExampleBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const filterMode = document.getElementById("filterMode");
+    const searchInput = document.getElementById("searchInput");
+    const statsText = document.getElementById("statsText");
+    const tableHead = document.getElementById("tableHead");
+    const tableBody = document.getElementById("tableBody");
+
+    const editorEls = [...document.querySelectorAll(".editor")];
+    let comparison = { labels: [], rows: [] };
+
+    function flattenJson(value, path = "", output = {}) {
+      if (Array.isArray(value)) {
+        if (value.length === 0) {
+          output[path] = [];
+          return output;
+        }
+        value.forEach((item, index) => {
+          const nextPath = path ? `${path}[${index}]` : `[${index}]`;
+          flattenJson(item, nextPath, output);
+        });
+        return output;
+      }
+
+      if (value && typeof value === "object") {
+        const entries = Object.entries(value);
+        if (entries.length === 0) {
+          output[path] = {};
+          return output;
+        }
+        entries.forEach(([key, child]) => {
+          const nextPath = path ? `${path}.${key}` : key;
+          flattenJson(child, nextPath, output);
+        });
+        return output;
+      }
+
+      output[path || "$"] = value;
+      return output;
+    }
+
+    function normalizeValue(value) {
+      return value === undefined ? "__MISSING__" : JSON.stringify(value);
+    }
+
+    function prettyValue(value) {
+      if (value === undefined) return "MISSING";
+      if (typeof value === "string") return value;
+      return JSON.stringify(value, null, 2);
+    }
+
+    function escapeHtml(text) {
+      return String(text)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    function collectInputs() {
+      return editorEls.map((editor, index) => {
+        const label = editor.querySelector(".label-input").value.trim() || `Result ${index + 1}`;
+        const textarea = editor.querySelector(".json-input");
+        const status = editor.querySelector(".status");
+        const raw = textarea.value.trim();
+
+        if (!raw) {
+          status.className = "status";
+          status.textContent = "ยังไม่มีข้อมูล";
+          return { active: false, label, flat: {} };
+        }
+
+        try {
+          const parsed = JSON.parse(raw);
+          status.className = "status";
+          status.textContent = "JSON ถูกต้อง";
+          return { active: true, label, flat: flattenJson(parsed) };
+        } catch (error) {
+          status.className = "status error";
+          status.textContent = `JSON ไม่ถูกต้อง: ${error.message}`;
+          return { active: false, invalid: true, label, flat: {} };
+        }
+      });
+    }
+
+    function buildComparison() {
+      const inputs = collectInputs();
+      if (inputs.some((item) => item.invalid)) {
+        statsText.textContent = "มี JSON บางช่อง parse ไม่ได้";
+        return { labels: [], rows: [] };
+      }
+
+      const active = inputs.filter((item) => item.active);
+      if (active.length < 2) {
+        statsText.textContent = "ต้องมี JSON อย่างน้อย 2 ช่อง";
+        return { labels: [], rows: [] };
+      }
+
+      const paths = new Set();
+      active.forEach((input) => {
+        Object.keys(input.flat).forEach((path) => paths.add(path));
+      });
+
+      const rows = [...paths].sort((a, b) => a.localeCompare(b)).map((path) => {
+        const values = active.map((input) => input.flat[path]);
+        const uniqueCount = new Set(values.map(normalizeValue)).size;
+        return {
+          path,
+          values,
+          isDifferent: uniqueCount > 1,
+          hasMissing: values.some((value) => value === undefined)
+        };
+      });
+
+      const diffCount = rows.filter((row) => row.isDifferent).length;
+      statsText.textContent = `compare ${active.length} results, ${rows.length} paths, diff ${diffCount} paths`;
+      return { labels: active.map((item) => item.label), rows };
+    }
+
+    function renderTable() {
+      const mode = filterMode.value;
+      const keyword = searchInput.value.trim().toLowerCase();
+      const { labels, rows } = comparison;
+
+      tableHead.innerHTML = "";
+      tableBody.innerHTML = "";
+
+      if (!labels.length) {
+        tableBody.innerHTML = '<tr><td class="placeholder">ผล compare จะขึ้นตรงนี้</td></tr>';
+        return;
+      }
+
+      const visibleRows = rows.filter((row) => {
+        const byMode =
+          mode === "all" ? true :
+          mode === "missing" ? row.hasMissing :
+          row.isDifferent;
+
+        const byKeyword = keyword
+          ? row.path.toLowerCase().includes(keyword) || row.values.some((value) => prettyValue(value).toLowerCase().includes(keyword))
+          : true;
+
+        return byMode && byKeyword;
+      });
+
+      const headerRow = document.createElement("tr");
+      const pathHeader = document.createElement("th");
+      pathHeader.className = "path-col";
+      pathHeader.textContent = "JSON Path";
+      headerRow.appendChild(pathHeader);
+
+      labels.forEach((label) => {
+        const th = document.createElement("th");
+        th.textContent = label;
+        headerRow.appendChild(th);
+      });
+      tableHead.appendChild(headerRow);
+
+      if (!visibleRows.length) {
+        tableBody.innerHTML = '<tr><td class="placeholder" colspan="99">ไม่มีข้อมูลตาม filter นี้</td></tr>';
+        return;
+      }
+
+      visibleRows.forEach((row) => {
+        const tr = document.createElement("tr");
+        const pathCell = document.createElement("td");
+        pathCell.className = "path-col";
+        pathCell.innerHTML = `<div class="value">${escapeHtml(row.path)}</div>`;
+        tr.appendChild(pathCell);
+
+        row.values.forEach((value) => {
+          const td = document.createElement("td");
+          td.className = value === undefined ? "missing" : row.isDifferent ? "diff" : "same";
+          td.innerHTML = `<div class="value">${escapeHtml(prettyValue(value))}</div>`;
+          tr.appendChild(td);
+        });
+
+        tableBody.appendChild(tr);
+      });
+    }
+
+    function compare() {
+      comparison = buildComparison();
+      renderTable();
+    }
+
+    function loadExample() {
+      const sample = [
+        {
+          label: "baseline",
+          data: {
+            invoice_no: "INV-2026-001",
+            total: "1250.00",
+            vendor: { name: "ACME Co.", tax_id: "0105547001234" },
+            items: [
+              { desc: "Paper", qty: "2", amount: "300.00" },
+              { desc: "Ink", qty: "1", amount: "950.00" }
+            ]
+          }
+        },
+        {
+          label: "prompt-v2",
+          data: {
+            invoice_no: "INV-2026-001",
+            total: "1258.00",
+            vendor: { name: "ACME Company", tax_id: "0105547001234" },
+            items: [
+              { desc: "Paper", qty: "2", amount: "300.00" },
+              { desc: "Ink", qty: "1", amount: "958.00" }
+            ]
+          }
+        },
+        {
+          label: "prompt-v3",
+          data: {
+            invoice_no: "INV-2026-001",
+            total: "1250.00",
+            vendor: { name: "ACME Co." },
+            items: [
+              { desc: "Paper", qty: "2", amount: "300.00" },
+              { desc: "lnk", qty: "7", amount: "950.00" }
+            ]
+          }
+        }
+      ];
+
+      editorEls.forEach((editor, index) => {
+        editor.querySelector(".label-input").value = sample[index].label;
+        editor.querySelector(".json-input").value = JSON.stringify(sample[index].data, null, 2);
+        editor.querySelector(".status").textContent = "พร้อม compare";
+        editor.querySelector(".status").className = "status";
+      });
+
+      compare();
+    }
+
+    function clearAll() {
+      editorEls.forEach((editor, index) => {
+        editor.querySelector(".label-input").value = `Result ${index + 1}`;
+        editor.querySelector(".json-input").value = "";
+        editor.querySelector(".status").textContent = "พร้อมวาง JSON";
+        editor.querySelector(".status").className = "status";
+      });
+      searchInput.value = "";
+      filterMode.value = "diff";
+      comparison = { labels: [], rows: [] };
+      statsText.textContent = "ใส่ JSON อย่างน้อย 2 ช่องแล้วกด Compare";
+      renderTable();
+    }
+
+    compareBtn.addEventListener("click", compare);
+    loadExampleBtn.addEventListener("click", loadExample);
+    clearBtn.addEventListener("click", clearAll);
+    filterMode.addEventListener("change", renderTable);
+    searchInput.addEventListener("input", renderTable);
+  </script>
+</body>
+</html>
