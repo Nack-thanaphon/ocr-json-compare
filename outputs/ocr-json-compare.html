@@ -1,11 +1,12 @@
 <!doctype html>
-<html lang="th">
+<html lang="th" data-theme="light">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>OCR JSON Compare x3</title>
   <style>
     :root {
+      color-scheme: light;
       --bg: #f5f7fb;
       --panel: #ffffff;
       --panel-soft: #f8fafc;
@@ -21,6 +22,23 @@
       --shadow: 0 18px 45px rgba(15, 23, 42, 0.08);
     }
 
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #07111f;
+      --panel: #0f1b2d;
+      --panel-soft: #132238;
+      --ink: #e5eefb;
+      --muted: #9db0c8;
+      --line: #24364f;
+      --accent: #60a5fa;
+      --accent-2: #34d399;
+      --danger: #f87171;
+      --diff: #433519;
+      --same: #173621;
+      --missing: #482126;
+      --shadow: 0 22px 55px rgba(2, 8, 23, 0.45);
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -32,6 +50,13 @@
       background:
         radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 20%),
         linear-gradient(180deg, #f8fbff 0%, var(--bg) 100%);
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    html[data-theme="dark"] body {
+      background:
+        radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 20%),
+        linear-gradient(180deg, #09111d 0%, var(--bg) 100%);
     }
 
     .page {
@@ -82,6 +107,13 @@
       color: var(--ink);
     }
 
+    html[data-theme="dark"] button,
+    html[data-theme="dark"] select,
+    html[data-theme="dark"] input {
+      background: #132238;
+      color: var(--ink);
+    }
+
     button {
       cursor: pointer;
       transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
@@ -96,6 +128,10 @@
       background: var(--accent);
       color: #fff;
       border-color: var(--accent);
+    }
+
+    .theme-toggle {
+      min-width: 116px;
     }
 
     .stats {
@@ -194,7 +230,7 @@
       width: 100%;
       min-width: 1020px;
       border-collapse: collapse;
-      background: #fff;
+      background: var(--panel);
     }
 
     th,
@@ -215,7 +251,7 @@
       position: sticky;
       top: 0;
       z-index: 2;
-      background: #f8fbff;
+      background: var(--panel-soft);
     }
 
     .path-col {
@@ -223,7 +259,7 @@
       left: 0;
       z-index: 1;
       min-width: 250px;
-      background: #fbfdff;
+      background: var(--panel-soft);
     }
 
     thead .path-col {
@@ -280,6 +316,7 @@
         <button id="compareBtn" class="primary">Compare</button>
         <button id="loadExampleBtn">Sample Data</button>
         <button id="clearBtn">Clear</button>
+        <button id="themeToggleBtn" class="theme-toggle">Dark mode</button>
         <select id="filterMode">
           <option value="diff">Differences only</option>
           <option value="all">All rows</option>
@@ -347,14 +384,32 @@
     const compareBtn = document.getElementById("compareBtn");
     const loadExampleBtn = document.getElementById("loadExampleBtn");
     const clearBtn = document.getElementById("clearBtn");
+    const themeToggleBtn = document.getElementById("themeToggleBtn");
     const filterMode = document.getElementById("filterMode");
     const searchInput = document.getElementById("searchInput");
     const statsText = document.getElementById("statsText");
     const tableHead = document.getElementById("tableHead");
     const tableBody = document.getElementById("tableBody");
+    const rootEl = document.documentElement;
 
     const editorEls = [...document.querySelectorAll(".editor")];
     let comparison = { labels: [], rows: [] };
+
+    function getPreferredTheme() {
+      const saved = localStorage.getItem("ocr-compare-theme");
+      if (saved === "light" || saved === "dark") return saved;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    }
+
+    function applyTheme(theme) {
+      rootEl.dataset.theme = theme;
+      themeToggleBtn.textContent = theme === "dark" ? "Light mode" : "Dark mode";
+      localStorage.setItem("ocr-compare-theme", theme);
+    }
+
+    function toggleTheme() {
+      applyTheme(rootEl.dataset.theme === "dark" ? "light" : "dark");
+    }
 
     function flattenJson(value, path = "", output = {}) {
       if (Array.isArray(value)) {
@@ -599,8 +654,11 @@
     compareBtn.addEventListener("click", compare);
     loadExampleBtn.addEventListener("click", loadExample);
     clearBtn.addEventListener("click", clearAll);
+    themeToggleBtn.addEventListener("click", toggleTheme);
     filterMode.addEventListener("change", renderTable);
     searchInput.addEventListener("input", renderTable);
+
+    applyTheme(getPreferredTheme());
   </script>
 </body>
 </html>
